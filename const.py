@@ -1,5 +1,6 @@
 """MIYA HRV 集成常量."""
 from homeassistant.const import Platform
+from homeassistant.components.climate import HVACMode
 
 DOMAIN = "miya_hrv"
 DEFAULT_PORT = 38
@@ -8,18 +9,8 @@ DEFAULT_PORT = 38
 PLATFORMS = [Platform.CLIMATE, Platform.SWITCH]
 
 # 设备信息
-DEVICE_NAME = "MIYA HRV "
+DEVICE_NAME = "MIYA HRV 新风系统"
 MANUFACTURER = "MIYA"
-
-# 风扇模式 
-FAN_MODE_HIGH = "high"
-FAN_MODE_MEDIUM = "medium"
-FAN_MODE_LOW = "low"
-
-# 运行模式
-MODE_ON = "on"  
-MODE_OFF = "off"
-MODE_MANUAL = "manual"  
 
 # 场景模式
 SCENE_SLEEP = "sleep"
@@ -31,17 +22,17 @@ FUNCTION_PURIFICATION = "purification"
 FUNCTION_INTERNAL_CIRCULATION = "internal_circulation"
 FUNCTION_EXTERNAL_CIRCULATION = "external_circulation"
 
-# 命令映射
+# 命令映射 - 使用Home Assistant内置模式
 COMMANDS = {
-    # 风扇模式
-    FAN_MODE_HIGH: "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 01 01 01 01",
-    FAN_MODE_MEDIUM: "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 02 02 02 02",
-    FAN_MODE_LOW: "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 03 03 03 03",
+    # 风扇模式 - 使用Home Assistant内置风扇模式
+    "FAN_LOW": "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 03 03 03 03",
+    "FAN_MEDIUM": "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 02 02 02 02",
+    "FAN_HIGH": "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 01 01 01 01",
     
-    # 运行模式
-    MODE_ON: "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 00 00 A5 DB",  # 自动模式
-    MODE_OFF: "C7 12 01 01 04 04 01 00 01 01 01 01 01 01 00 00 6A 7E",  # 关闭
-    MODE_MANUAL: "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 05 05 05 05",  # 手动模式
+    # HVAC模式 - 使用Home Assistant内置HVACMode
+    HVACMode.OFF: "C7 12 01 01 04 04 01 00 01 01 01 01 01 01 00 00 6A 7E",  # 关闭
+    HVACMode.AUTO: "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 00 00 A5 DB",  # 自动模式
+    HVACMode.FAN_ONLY: "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 05 05 05 05",  # 手动模式
     
     # 场景模式
     SCENE_SLEEP: "C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 10 10 10 10",

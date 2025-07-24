@@ -21,12 +21,6 @@ from .const import (
     DOMAIN,
     DEVICE_NAME,
     MANUFACTURER,
-    FAN_MODE_HIGH,
-    FAN_MODE_MEDIUM,
-    FAN_MODE_LOW,
-    MODE_ON,
-    MODE_OFF,
-    MODE_MANUAL,
     SCENE_SLEEP,
     SCENE_VACATION,
     SCENE_GUEST,
@@ -35,18 +29,10 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# 支持的模式
-SUPPORTED_FAN_MODES = [FAN_MODE_LOW, FAN_MODE_MEDIUM, FAN_MODE_HIGH]
+# 支持的模式 - 使用Home Assistant内置模式
+SUPPORTED_FAN_MODES = ["FAN_LOW", "FAN_MEDIUM", "FAN_HIGH"]
+SUPPORTED_HVAC_MODES = [HVACMode.OFF, HVACMode.AUTO, HVACMode.FAN_ONLY]
 SUPPORTED_SCENES = [SCENE_SLEEP, SCENE_VACATION, SCENE_GUEST]
-
-# 自定义HVAC模式
-class CustomHVACMode:
-    """自定义HVAC模式."""
-    OFF = "off"
-    AUTO = "auto"  # 自动模式
-    MANUAL = "manual"  # 手动模式
-
-SUPPORTED_HVAC_MODES = [CustomHVACMode.OFF, CustomHVACMode.AUTO, CustomHVACMode.MANUAL]
 
 
 async def async_setup_entry(
@@ -79,9 +65,9 @@ class MiyaHRVClimate(ClimateEntity):
         self._name = name
         self._unique_id = unique_id
         
-        # 状态变量
-        self._hvac_mode = CustomHVACMode.OFF
-        self._fan_mode = FAN_MODE_MEDIUM
+        # 状态变量 - 使用Home Assistant内置模式
+        self._hvac_mode = HVACMode.OFF
+        self._fan_mode = "FAN_MEDIUM"
         self._current_scene = None
         
         # 添加数据监听器
@@ -110,7 +96,7 @@ class MiyaHRVClimate(ClimateEntity):
         return self._unique_id
 
     @property
-    def hvac_mode(self) -> str:
+    def hvac_mode(self) -> HVACMode:
         """返回当前HVAC模式."""
         return self._hvac_mode
 
@@ -134,31 +120,21 @@ class MiyaHRVClimate(ClimateEntity):
         """返回目标温度 (新风系统不需要)."""
         return None
 
-    async def async_set_hvac_mode(self, hvac_mode: str) -> None:
+    async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """设置HVAC模式."""
         if hvac_mode not in SUPPORTED_HVAC_MODES:
             _LOGGER.error(f"不支持的模式: {hvac_mode}")
             return
         
-        # 映射自定义HVAC模式到我们的命令
-        if hvac_mode == CustomHVACMode.OFF:
-            command = COMMANDS[MODE_OFF]
-            self._hvac_mode = CustomHVACMode.OFF
-            mode_name = "关闭"
-        elif hvac_mode == CustomHVACMode.AUTO:
-            command = COMMANDS[MODE_ON]
-            self._hvac_mode = CustomHVACMode.AUTO
-            mode_name = "自动"
-        elif hvac_mode == CustomHVACMode.MANUAL:
-            command = COMMANDS[MODE_MANUAL]
-            self._hvac_mode = CustomHVACMode.MANUAL
-            mode_name = "手动"
-        else:
-            _LOGGER.error(f"不支持的模式: {hvac_mode}")
-            return
+        # 使用Home Assistant内置HVACMode
+        command = COMMANDS[hvac_mode]
+        self._hvac_mode = hvac_mode
         
+        # 记录日志
+        mode_name = "关闭" if hvac_mode == HVACMode.OFF else "自动" if hvac_mode == HVACMode.AUTO else "手动"
         _LOGGER.info(f"🔄 设置模式: {mode_name}")
         print(f"🔄 设置模式: {mode_name}")
+        
         await self._device.send_command(command)
         self.async_write_ha_state()
 
@@ -195,15 +171,15 @@ class MiyaHRVClimate(ClimateEntity):
             if "hvac_mode" in data:
                 mode = data["hvac_mode"]
                 if mode == "off":
-                    self._hvac_mode = CustomHVACMode.OFF
+                    self._hvac_mode = HVACMode.OFF
                     _LOGGER.info("📥 收到模式更新: 关闭")
                     print("📥 收到模式更新: 关闭")
                 elif mode == "auto":
-                    self._hvac_mode = CustomHVACMode.AUTO
+                    self._hvac_mode = HVACMode.AUTO
                     _LOGGER.info("📥 收到模式更新: 自动")
                     print("📥 收到模式更新: 自动")
                 elif mode == "manual":
-                    self._hvac_mode = CustomHVACMode.MANUAL
+                    self._hvac_mode = HVACMode.FAN_ONLY
                     _LOGGER.info("📥 收到模式更新: 手动")
                     print("📥 收到模式更新: 手动")
             

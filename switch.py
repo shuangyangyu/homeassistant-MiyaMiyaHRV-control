@@ -3,6 +3,7 @@ import logging
 from typing import Any, List
 
 from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.climate import HVACMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
@@ -16,7 +17,6 @@ from .const import (
     FUNCTION_PURIFICATION,
     FUNCTION_INTERNAL_CIRCULATION,
     FUNCTION_EXTERNAL_CIRCULATION,
-    MODE_OFF,
     COMMANDS,
 )
 
@@ -97,11 +97,9 @@ class MiyaHRVSwitch(SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """关闭开关."""
-        # 发送关闭命令
-        command = COMMANDS[MODE_OFF]  # 使用通用的关闭命令
+        # 发送关闭命令 - 使用Home Assistant内置HVACMode.OFF
+        command = COMMANDS[HVACMode.OFF]  # 使用通用的关闭命令
         self._is_on = False
-        await self._device.send_command(command)
-        self.async_write_ha_state()
         await self._device.send_command(command)
         self.async_write_ha_state()
 
