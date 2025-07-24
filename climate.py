@@ -21,9 +21,6 @@ from .const import (
     DOMAIN,
     DEVICE_NAME,
     MANUFACTURER,
-    SCENE_SLEEP,
-    SCENE_VACATION,
-    SCENE_GUEST,
     COMMANDS,
 )
 
@@ -32,7 +29,8 @@ _LOGGER = logging.getLogger(__name__)
 # 支持的模式 - 使用Home Assistant内置模式
 SUPPORTED_FAN_MODES = ["FAN_LOW", "FAN_MEDIUM", "FAN_HIGH"]
 SUPPORTED_HVAC_MODES = [HVACMode.OFF, HVACMode.AUTO, HVACMode.FAN_ONLY]
-SUPPORTED_SCENES = [SCENE_SLEEP, SCENE_VACATION, SCENE_GUEST]
+# 使用Home Assistant内置预设模式
+SUPPORTED_PRESET_MODES = ["ECO", "AWAY", "SLEEP"]
 
 
 async def async_setup_entry(
@@ -68,7 +66,7 @@ class MiyaHRVClimate(ClimateEntity):
         # 状态变量 - 使用Home Assistant内置模式
         self._hvac_mode = HVACMode.OFF
         self._fan_mode = "FAN_MEDIUM"
-        self._current_scene = None
+        self._current_preset = None
         
         # 添加数据监听器
         self._device.add_listener(self._handle_device_data)
@@ -81,7 +79,7 @@ class MiyaHRVClimate(ClimateEntity):
         
         self._attr_hvac_modes = SUPPORTED_HVAC_MODES
         self._attr_fan_modes = SUPPORTED_FAN_MODES
-        self._attr_preset_modes = SUPPORTED_SCENES
+        self._attr_preset_modes = SUPPORTED_PRESET_MODES
         # 新风系统不需要温度控制
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
 
@@ -108,7 +106,7 @@ class MiyaHRVClimate(ClimateEntity):
     @property
     def preset_mode(self) -> Optional[str]:
         """返回当前预设模式."""
-        return self._current_scene
+        return self._current_preset
 
     @property
     def current_temperature(self) -> Optional[float]:
@@ -153,14 +151,21 @@ class MiyaHRVClimate(ClimateEntity):
             print(f"❌ 不支持的风扇模式: {fan_mode}")
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
-        """设置预设模式（场景模式）."""
-        if preset_mode in SUPPORTED_SCENES:
+        """设置预设模式."""
+        if preset_mode in SUPPORTED_PRESET_MODES:
             command = COMMANDS[preset_mode]
-            self._current_scene = preset_mode
-            _LOGGER.info(f"🔄 设置场景模式: {preset_mode}")
-            print(f"🔄 设置场景模式: {preset_mode}")
+            self._current_preset = preset_mode
+            
+            # 记录日志
+            preset_name = "节能" if preset_mode == "ECO" else "离家" if preset_mode == "AWAY" else "睡眠"
+            _LOGGER.info(f"🔄 设置预设模式: {preset_name}")
+            print(f"🔄 设置预设模式: {preset_name}")
+            
             await self._device.send_command(command)
             self.async_write_ha_state()
+        else:
+            _LOGGER.error(f"不支持的预设模式: {preset_mode}")
+            print(f"❌ 不支持的预设模式: {preset_mode}")
 
     # 新风系统不需要温度控制，移除 async_set_temperature 方法
 
@@ -190,10 +195,12 @@ class MiyaHRVClimate(ClimateEntity):
                     _LOGGER.info(f"📥 收到风扇模式更新: {fan_mode}")
                     print(f"📥 收到风扇模式更新: {fan_mode}")
             
-            if "scene" in data:
-                scene = data["scene"]
-                if scene in SUPPORTED_SCENES:
-                    self._current_scene = scene
+            if "preset_mode" in data:
+                preset_mode = data["preset_mode"]
+                if preset_mode in SUPPORTED_PRESET_MODES:
+                    self._current_preset = preset_mode
+                    _LOGGER.info(f"📥 收到预设模式更新: {preset_mode}")
+                    print(f"📥 收到预设模式更新: {preset_mode}")
             
             # 新风系统不需要温度处理
             
