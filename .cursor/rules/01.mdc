@@ -1,0 +1,92 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+## 项目结构
+这是一个Home Assistant自定义风扇集成项目，位于 `custom_components/test_fan/` 目录
+
+## 网络环境
+客户端连接服务器的模式 192.168.1.5：38
+
+tcp连接的方式使用当前库tcp_485_lib 这个库有连接 发送 接受 等方式
+实例 这个是接受的演示
+```
+import asyncio
+from tcp_485_lib import create_client
+
+async def main():
+    client=create_client("192.168.1.5", 38, "hex")
+    if await client.connect():
+        print("连接成功")
+        async for data in client.listen():
+            #引入miya_command_analyzer.py
+            from device_MIYA_HRV.miya_command_analyzer import MiyaCommandAnalyzer
+            analyzer = MiyaCommandAnalyzer()
+            command_result = analyzer.analyze_command(data)
+            print(command_result)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+```
+
+
+## 内容要求
+开发homeassistant的自定义组件
+开发的是一个新风系统
+使用 Climate  switch 作为开发基础 继承类
+
+
+### 连接服务
+
+1 使用库tcp_485_lib  建立连接 接受数据  发送数据
+2 解析数据miya_command_analyzer.py
+
+
+
+
+
+### 指令集合
+开发的功能1（依赖Climate0）
+    - 风扇模式
+        -高 （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+        -中  （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+        - 低  （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+    - 模式
+        - on  （hex= “C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 00 00 A5 DB“）
+        - off  （hex=“C7 12 01 02 01 01 04 04 01 00 01 01 01 01 01 01 00 00 6A 7E”）
+    - 场景
+        睡眠模式 （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+        假期模式  （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+        会客模式  （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+开发功能2（依赖 switch）
+    净化功能 （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+    内循环    （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+    外循环    （hex=“C7 12 01 02 01 02 04 04 01 00 01 01 01 01 01 01 xx xx xx xx”）
+
+
+### 更新状态
+
+
+import asyncio
+from tcp_485_lib import create_client
+
+async def main():
+    client=create_client("192.168.1.5", 38, "hex")
+    if await client.connect():
+        print("连接成功")
+        async for data in client.listen():
+            #引入miya_command_analyzer.py
+            from device_MIYA_HRV.miya_command_analyzer import MiyaCommandAnalyzer
+            analyzer = MiyaCommandAnalyzer()
+            command_result = analyzer.analyze_command(data)
+            print(command_result)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+```
+
+## 开发步骤
+1. 根据需求生成组件 少有的指令使用hex 使用hex假的占位

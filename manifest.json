@@ -1,0 +1,25 @@
+{
+  "domain": "miya_hrv",
+  "name": "MIYA HRV 新风系统",
+  "documentation": "https://github.com/your-repo/miya-hrv",
+  "dependencies": [],
+  "codeowners": ["@your-username"],
+  "requirements": [],
+  "version": "1.0.0",
+  "config_flow": true,
+  "iot_class": "local_push",
+  "supported_brands": {
+    "miya": "MIYA"
+  },
+  "external_dependencies": {
+    "local_libraries": [
+      "tcp_485_lib",
+      "device_MIYA_HRV"
+    ]
+  },
+  "quality_scale": "platinum",
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dhcp": []
+} 
