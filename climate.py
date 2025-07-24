@@ -21,13 +21,17 @@ from .const import (
     DOMAIN,
     DEVICE_NAME,
     MANUFACTURER,
+    FAN_MODE_LOW,
+    FAN_MODE_MEDIUM,
+    FAN_MODE_HIGH,
+    FAN_MODE_NAMES,
     COMMANDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 # 支持的模式 - 使用Home Assistant内置模式
-SUPPORTED_FAN_MODES = ["FAN_LOW", "FAN_MEDIUM", "FAN_HIGH"]
+SUPPORTED_FAN_MODES = [FAN_MODE_LOW, FAN_MODE_MEDIUM, FAN_MODE_HIGH]
 SUPPORTED_HVAC_MODES = [HVACMode.OFF, HVACMode.AUTO, HVACMode.FAN_ONLY]
 # 使用Home Assistant内置预设模式
 SUPPORTED_PRESET_MODES = ["ECO", "AWAY", "SLEEP"]
@@ -65,7 +69,7 @@ class MiyaHRVClimate(ClimateEntity):
         
         # 状态变量 - 使用Home Assistant内置模式
         self._hvac_mode = HVACMode.OFF
-        self._fan_mode = "FAN_MEDIUM"
+        self._fan_mode = FAN_MODE_MEDIUM
         self._current_preset = None
         
         # 添加数据监听器
@@ -142,8 +146,11 @@ class MiyaHRVClimate(ClimateEntity):
             command = COMMANDS[fan_mode]
             self._fan_mode = fan_mode
             
-            _LOGGER.info(f"🔄 设置风扇模式: {fan_mode}")
-            print(f"🔄 设置风扇模式: {fan_mode}")
+            # 获取中文显示名称
+            fan_mode_name = FAN_MODE_NAMES.get(fan_mode, fan_mode)
+            _LOGGER.info(f"🔄 设置风扇模式: {fan_mode_name}")
+            print(f"🔄 设置风扇模式: {fan_mode_name}")
+            
             await self._device.send_command(command)
             self.async_write_ha_state()
         else:
@@ -192,8 +199,10 @@ class MiyaHRVClimate(ClimateEntity):
                 fan_mode = data["fan_mode"]
                 if fan_mode in SUPPORTED_FAN_MODES:
                     self._fan_mode = fan_mode
-                    _LOGGER.info(f"📥 收到风扇模式更新: {fan_mode}")
-                    print(f"📥 收到风扇模式更新: {fan_mode}")
+                    # 获取中文显示名称
+                    fan_mode_name = FAN_MODE_NAMES.get(fan_mode, fan_mode)
+                    _LOGGER.info(f"📥 收到风扇模式更新: {fan_mode_name}")
+                    print(f"📥 收到风扇模式更新: {fan_mode_name}")
             
             if "preset_mode" in data:
                 preset_mode = data["preset_mode"]
