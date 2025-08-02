@@ -1,6 +1,6 @@
 {
   "domain": "miya_hrv",
-  "name": "MIYA HRV 新风系统",
+  "name": "MIYA HRV Fresh Air System",
   "documentation": "https://github.com/your-repo/miya-hrv",
   "dependencies": [],
   "codeowners": ["@your-username"],
@@ -21,5 +21,9 @@
   "ssdp": [],
   "zeroconf": [],
   "homekit": {},
-  "dhcp": []
+  "dhcp": [],
+  "platforms": ["climate", "switch"],
+  "issue_tracker": "https://github.com/your-repo/miya-hrv/issues",
+  "after_dependencies": [],
+  "loggers": ["custom_components.miya_hrv"]
 } 

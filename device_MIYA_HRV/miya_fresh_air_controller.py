@@ -9,7 +9,35 @@ MIYA新风系统485协议控制器
 import struct
 from typing import Dict, List, Tuple, Optional
 from enum import Enum
-from device_MIYA_HRV.crc16_utils import crc16_ccitt
+
+import sys
+import os
+from typing import Dict
+
+# 添加父目录到路径，以便导入tcp_485_lib
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+try:
+    from tcp_485_lib.tool import DataConverter
+except ImportError:
+    # 如果无法导入，尝试相对导入
+    sys.path.append(parent_dir)
+    from tcp_485_lib.tool import DataConverter
+
+# 修复crc16_utils导入问题
+try:
+    from .crc16_utils import crc16_ccitt
+except ImportError:
+    try:
+        # 如果相对导入失败，尝试绝对导入
+        from device_MIYA_HRV.crc16_utils import crc16_ccitt
+    except ImportError:
+        # 如果还是失败，尝试直接导入
+        import crc16_utils
+        crc16_ccitt = crc16_utils.crc16_ccitt
 
 
 class MiyaFreshAirController:
@@ -96,110 +124,25 @@ class MiyaFreshAirController:
         packet.append(crc & 0xFF)         # byte 19: CRC低位
         
         return bytes(packet)
+    # 定义固定指令生成
+    def generate_fixed_command(self, device_addr: int, command_type: int) -> bytes:
+        """
+        生成固定指令
+        """
+        # 构建数据包（不包含CRC）
+        data_packet = "C7 12 00 02 00 00 00 00 00 00 01 00 00 00 00 00 00 00"
+        new_packet = bytearray(self.parse_hex_string(data_packet))  # 转换为bytearray以便修改
+        # 计算CRC16校验（从byte 0开始，包含包头）
+        crc_data = new_packet[0:18]  # 包头+数据长度+16字节数据
+        crc = crc16_ccitt(crc_data)
+        # 添加CRC16（高位在前，低位在后）
+        new_packet.append((crc >> 8) & 0xFF)  # byte 18: CRC高位
+        new_packet.append(crc & 0xFF)         # byte 19: CRC低位
+        return bytes(new_packet)
     
-    def generate_query_command(self, device_addr: int) -> bytes:
-        """
-        生成状态查询指令
-        
-        Args:
-            device_addr: 设备地址
-            
-        Returns:
-            查询指令字节序列
-        """
-        return self.generate_control_command(
-            device_addr=device_addr,
-            # 所有控制参数都设为0x00（不操作），实现纯查询
-        )
     
-    def parse_status_response(self, data: bytes) -> Dict:
-        """
-        解析状态返回数据
-        
-        Args:
-            data: 接收到的状态数据
-            
-        Returns:
-            解析后的状态字典
-        """
-        if len(data) != 20:
-            raise ValueError(f"数据长度错误，期望20字节，实际{len(data)}字节")
-        
-        # 验证包头和数据长度
-        header = data[0]
-        data_len = data[1]
-        
-        if data_len != self.DATA_LENGTH:
-            print(f"警告：数据长度字段异常，期望0x{self.DATA_LENGTH:02X}，实际0x{data_len:02X}")
-        
-        # 验证CRC16
-        crc_received = (data[18] << 8) | data[19]
-        crc_calculated = crc16_ccitt(data[0:18])  # 从包头开始计算
-        
-        crc_valid = crc_received == crc_calculated
-        if not crc_valid:
-            print(f"警告：CRC16校验失败，接收0x{crc_received:04X}，计算0x{crc_calculated:04X}")
-        
-        # 解析状态字段
-        status = {
-            'packet_info': {
-                'header': f"0x{header:02X}",
-                'data_length': f"0x{data_len:02X}",
-                'crc_valid': crc_valid,
-                'crc_received': f"0x{crc_received:04X}",
-                'crc_calculated': f"0x{crc_calculated:04X}"
-            },
-            'device_addr': data[2],
-            'cmd_type': '状态查询' if data[3] == self.CMD_QUERY else '状态设置',
-            'device_addr_repeat': data[4],
-            'power': {
-                'value': data[5],
-                'status': '关机' if data[5] == 0x01 else '开机' if data[5] == 0x02 else '未知'
-            },
-            'fan_speed_in': {
-                'value': data[6],
-                'status': f"风速{data[6]}档" if 1 <= data[6] <= 5 else f"未知档位(0x{data[6]:02X})"
-            },
-            'fan_speed_out': {
-                'value': data[7],
-                'status': f"风速{data[7]}档" if 1 <= data[7] <= 5 else f"未知档位(0x{data[7]:02X})"
-            },
-            'negative_ion': {
-                'value': data[8],
-                'status': '关' if data[8] == 0x01 else '开' if data[8] == 0x02 else '未知'
-            },
-            'aux_heat': {
-                'value': data[9],
-                'status': '关' if data[9] == 0x01 else '开' if data[9] == 0x02 else '未知'
-            },
-            'auto_manual': {
-                'value': data[10],
-                'status': '自动' if data[10] == 0x01 else '手动' if data[10] == 0x02 else '未知'
-            },
-            'outdoor_sensor': {
-                'value': data[11],
-                'status': '关闭' if data[11] == 0x01 else '开启' if data[11] == 0x02 else '未知'
-            },
-            'inner_cycle': {
-                'value': data[12],
-                'status': '普通模式' if data[12] == 0x01 else '内循环' if data[12] == 0x02 else '未知'
-            },
-            'aux_group': {
-                'value': data[13],
-                'status': '关' if data[13] == 0x01 else '开' if data[13] == 0x02 else '未知'
-            },
-            'bypass': {
-                'value': data[14],
-                'status': '关' if data[14] == 0x01 else '开' if data[14] == 0x02 else '未知'
-            },
-            'timer': {
-                'value': data[15],
-                'status': '关' if data[15] == 0x01 else '开' if data[15] == 0x02 else '未知'
-            }
-        }
-        
-        return status
-    
+   
+   
     def format_hex_string(self, data: bytes) -> str:
         """
         将字节数据格式化为可读的HEX字符串
@@ -232,67 +175,95 @@ class MiyaFreshAirController:
         # 转换为字节
         return bytes.fromhex(hex_clean)
 
+def format_hex_string(self, data: bytes) -> str:
+    """
+    将字节数据格式化为可读的HEX字符串
+    
+    Args:
+        data: 字节数据
+        
+    Returns:
+        格式化的HEX字符串
+    """
+    return ' '.join(f'{b:02X}' for b in data)
+
+def parse_hex_string(self, hex_str: str) -> bytes:
+# 定义一个生成固定指令的方法 出入两个参数 一个是物理地址 一个是字典代表指令 字典的key 是 指令的名称 值是 指令的值
+
+
+
+def generate_fixed_command(self, device_addr: str, command_list: list) -> bytes:
+    """
+    生成固定指令
+    """
+    #物理地址默认是01
+    if device_addr is None:
+        device_addr = 0x01
+    # 如果command_dict 是空 报错
+    if command_list is None:
+        raise ValueError("command_list 不能为空")
+    # 如果command_list 是列表 则根据列表的key 和 值 生成指令  
+    # 例如：("内循环on","C7 12 00 02 00 00 00 00 00 00 00 00 02 00 00 00 00 00", ...}
+    # 根据command_list 生成指令
+    for command in command_list:
+        command_bytes = parse_hex_string(command)
+        crc_data = command_bytes[0:18]  # 包头+数据长度+16字节数据
+        crc = crc16_ccitt(crc_data)
+        # 添加CRC16（高位在前，低位在后）
+        command_bytes.append((crc >> 8) & 0xFF)  # byte 18: CRC高位
+        command_bytes.append(crc & 0xFF)         # byte 19: CRC低位
+        command_bytes = bytes(command_bytes)
+        command_hex = format_hex_string(command_bytes)
+        print(f"指令: {command_hex}")
+        
+        
+    return command_hex
+        
+        
+        
+ 
+
+
+   
+        
+    
+    
+    
+    
+
+
+
 
 
 def main():
     """示例使用方法"""
     controller = MiyaFreshAirController()
+    fixed_cmd = controller.generate_fixed_command(1, 0x01)
+    print(f"固定指令: {controller.format_hex_string(fixed_cmd)}")
+
     
-    print("=== MIYA新风系统485协议控制器示例 ===\n")
+    # # 1. 生成控制指令示例
+    # print("1. 生成控制指令:")
+    # cmd = controller.generate_control_command(
+    #     device_addr=1,
+    #     power=0x01,        
+    #     fan_speed_in=0x04, 
+    #     fan_speed_out=0x04,
+    #     negative_ion=0x01, 
+    #     auto_manual=0x01,   
+    #     outdoor_sensor=0x01, 
+    #     inner_cycle=0x01, 
+    #     aux_group=0x01,
+    #     bypass=0x01, 
+    #     timer=0x01 
+        
+    # )
+    # print(f"开机指令: {controller.format_hex_string(cmd)}")
     
-    # 1. 生成控制指令示例
-    print("1. 生成控制指令:")
-    cmd = controller.generate_control_command(
-        device_addr=1,
-        power=0x01,        
-        fan_speed_in=0x04, 
-        fan_speed_out=0x04,
-        negative_ion=0x01, 
-        auto_manual=0x01,   
-        outdoor_sensor=0x01, 
-        inner_cycle=0x01, 
-        aux_group=0x01,
-        bypass=0x01, 
-        timer=0x01 
-        
-    )
-    print(f"开机指令: {controller.format_hex_string(cmd)}")
+  
     
-    # # 2. 生成查询指令示例
-    # print("\n2. 生成查询指令:")
-    # query_cmd = controller.generate_query_command(device_addr=1)
-    # print(f"查询指令: {controller.format_hex_string(query_cmd)}")
+
     
-    # 3. 解析状态数据示例
-    print("\n3. 解析状态数据:")
-    # 使用提供的实际数据
-    hex_data = "C7 12 01 01 01 01 04 04 01 01 01 01 01 01 01 01 00 00 62 78"
-    try:
-        data = controller.parse_hex_string(hex_data)
-        status = controller.parse_status_response(data)
-        
-        print(f"原始数据: {hex_data}")
-        print(f"包头信息: {status['packet_info']}")
-        print(f"设备地址: {status['device_addr']}")
-        print(f"命令类型: {status['cmd_type']}")
-        print(f"设备地址(重复): {status['device_addr_repeat']}")
-        
-        # 打印所有控制状态
-        print("\n=== 设备状态详情 ===")
-        print(f"电源状态: {status['power']['status']} (值: 0x{status['power']['value']:02X})")
-        print(f"进风风速: {status['fan_speed_in']['status']} (值: 0x{status['fan_speed_in']['value']:02X})")
-        print(f"排风风速: {status['fan_speed_out']['status']} (值: 0x{status['fan_speed_out']['value']:02X})")
-        print(f"负离子: {status['negative_ion']['status']} (值: 0x{status['negative_ion']['value']:02X})")
-        print(f"辅热: {status['aux_heat']['status']} (值: 0x{status['aux_heat']['value']:02X})")
-        print(f"运行模式: {status['auto_manual']['status']} (值: 0x{status['auto_manual']['value']:02X})")
-        print(f"室外温湿度: {status['outdoor_sensor']['status']} (值: 0x{status['outdoor_sensor']['value']:02X})")
-        print(f"内循环: {status['inner_cycle']['status']} (值: 0x{status['inner_cycle']['value']:02X})")
-        print(f"辅组: {status['aux_group']['status']} (值: 0x{status['aux_group']['value']:02X})")
-        print(f"旁通: {status['bypass']['status']} (值: 0x{status['bypass']['value']:02X})")
-        print(f"定时: {status['timer']['status']} (值: 0x{status['timer']['value']:02X})")
-        
-    except Exception as e:
-        print(f"解析错误: {e}")
     
 
 

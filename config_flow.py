@@ -6,7 +6,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import DOMAIN, DEFAULT_PORT
+from .const import DOMAIN, DEFAULT_PORT, generate_device_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class MiyaHRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 port = user_input.get(CONF_PORT, DEFAULT_PORT)
                 
                 # 创建唯一ID
-                await self.async_set_unique_id(f"{host}:{port}")
+                await self.async_set_unique_id(generate_device_id(host, port))
                 self._abort_if_unique_id_configured()
                 
                 # 测试连接
