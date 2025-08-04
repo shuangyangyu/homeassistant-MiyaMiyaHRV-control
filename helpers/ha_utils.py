@@ -121,44 +121,14 @@ async def send_device_command(hass, entry_id: str, command_name: str) -> bool:
             _LOGGER.error("设备或命令不可用")
             return False
         
-        # 命令映射：从中文名称映射到实际的命令键
-        command_mapping = {
-            # 开关命令
-            "负离子开启": "negative_ion_on",
-            "负离子关闭": "negative_ion_off",
-            "UV杀菌开启": "uv_sterilization_on",
-            "UV杀菌关闭": "uv_sterilization_off",
-            "睡眠模式开启": "sleep_mode_on",
-            "睡眠模式关闭": "sleep_mode_off",
-            "内循环开启": "inner_cycle_on",
-            "内循环关闭": "inner_cycle_off",
-            "辅助加热开启": "auxiliary_heat_on",
-            "辅助加热关闭": "auxiliary_heat_off",
-            "旁通开启": "bypass_on",
-            "旁通关闭": "bypass_off",
-            
-            # HVAC模式命令
-            "设备关机": "power_off",
-            "自动模式": "power_auto",
-            "手动模式": "power_auto",  # 手动模式暂时使用自动模式
-            
-            # 风扇模式命令
-            "风速1档": "fan_mode_level_1",
-            "风速2档": "fan_mode_level_2",
-            "风速3档": "fan_mode_level_3",
-        }
-        
-        # 获取实际的命令键
-        actual_command_key = command_mapping.get(command_name, command_name)
-        
-        # 获取命令
-        command = commands.get(actual_command_key)
+        # 直接使用传入的命令键，不再需要映射
+        command = commands.get(command_name)
         if command:
             await device.send_command(command)
-            _LOGGER.info(f"📡 发送命令: {command_name} -> {actual_command_key} -> {command}")
+            _LOGGER.info(f"📡 发送命令: {command_name} -> {command}")
             return True
         else:
-            _LOGGER.error(f"❌ 未找到命令: {command_name} (映射到: {actual_command_key})")
+            _LOGGER.error(f"❌ 未找到命令: {command_name}")
             _LOGGER.debug(f"📋 可用命令: {list(commands.keys())}")
             return False
             
@@ -204,7 +174,6 @@ def get_bypass_status(status: Dict[str, Any]) -> bool:
     bypass_status = status.get('bypass', 'off')
     return bypass_status == 'on'
 
-
 def generate_entity_id(entry_id: str, entity_type: str, function_id: str = None) -> str:
     """生成简洁的实体唯一标识符。
     
@@ -221,7 +190,6 @@ def generate_entity_id(entry_id: str, entity_type: str, function_id: str = None)
     else:
         return f"miya_{entity_type}"
 
-
 def generate_device_id(host: str, port: int) -> str:
     """生成设备唯一标识符。
     
@@ -233,7 +201,6 @@ def generate_device_id(host: str, port: int) -> str:
         设备唯一标识符
     """
     return f"{host}:{port}"
-
 
 class MiyaHRVManager:
     """MIYA HRV 组件管理器."""
@@ -253,10 +220,10 @@ class MiyaHRVManager:
         try:
             device_addr = "01"
             self.calculated_commands = cmd_calculate(command_set_dict, device_addr)
-            _LOGGER.info("✅ 命令计算完成")
+            _LOGGER.info("命令计算完成")
             return self.calculated_commands
         except Exception as e:
-            _LOGGER.error(f"❌ 命令计算失败: {e}")
+            _LOGGER.error(f"命令计算失败: {e}")
             return None
     
     async def setup(self, entry: ConfigEntry):
@@ -270,7 +237,7 @@ class MiyaHRVManager:
         # 创建设备实例
         self.device = TCP_485_Device(
             host=entry.data[CONF_HOST],
-            port=entry.data.get(CONF_PORT, 38)  # 使用默认端口
+            port=entry.data.get(CONF_PORT, 38)  
         )
         
         # 创建状态分析器
@@ -312,24 +279,23 @@ class MiyaHRVManager:
                         try:
                             # 解析状态数据
                             status_data = self.analyzer.get_status_data(data)
-                            _LOGGER.info(f"📊 解析状态数据: {status_data}")
                             
-                            # 更新状态
+                            # 更新状态_更新到hass.data中
                             self.device_status.update(status_data)
                             
-                            _LOGGER.info(f"📊 状态已更新: {status_data}")
+                            _LOGGER.info(f"状态已更新: {status_data}")
                             
                             # 通知所有相关实体更新状态
                             await self.notify_entities_status_update(status_data)
                             
                         except Exception as e:
-                            _LOGGER.error(f"❌ 解析数据失败: {e}")
+                            _LOGGER.error(f"解析数据失败: {e}")
                             
                 else:
-                    _LOGGER.error(f"❌ 无法连接到设备 {self.device.host}:{self.device.port}")
+                    _LOGGER.error(f"无法连接到设备 {self.device.host}:{self.device.port}")
                     
             except Exception as e:
-                _LOGGER.error(f"❌ 设备监听任务出错: {e}")
+                _LOGGER.error(f"设备监听任务出错: {e}")
         
         # 启动监听任务
         self.hass.async_create_task(connect_and_listen())

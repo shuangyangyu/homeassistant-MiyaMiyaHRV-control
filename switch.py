@@ -119,14 +119,14 @@ class MiyaHRVSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """打开开关."""
-        # 命令映射
+        # 直接使用英文命令键
         command_map = {
-            "negative_ion": "负离子开启",
-            "uv_sterilization": "UV杀菌开启",
-            "sleep_mode": "睡眠模式开启",
-            "inner_cycle": "内循环开启",
-            "auxiliary_heat": "辅助加热开启",
-            "bypass": "旁通开启"
+            "negative_ion": "negative_ion_on",
+            "uv_sterilization": "uv_sterilization_on",
+            "sleep_mode": "sleep_mode_on",
+            "inner_cycle": "inner_cycle_on",
+            "auxiliary_heat": "auxiliary_heat_on",
+            "bypass": "bypass_on"
         }
         
         command_name = command_map.get(self._function_id)
@@ -140,14 +140,14 @@ class MiyaHRVSwitch(SwitchEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """关闭开关."""
-        # 命令映射
+        # 直接使用英文命令键
         command_map = {
-            "negative_ion": "负离子关闭",
-            "uv_sterilization": "UV杀菌关闭",
-            "sleep_mode": "睡眠模式关闭",
-            "inner_cycle": "内循环关闭",
-            "auxiliary_heat": "辅助加热关闭",
-            "bypass": "旁通关闭"
+            "negative_ion": "negative_ion_off",
+            "uv_sterilization": "uv_sterilization_off",
+            "sleep_mode": "sleep_mode_off",
+            "inner_cycle": "inner_cycle_off",
+            "auxiliary_heat": "auxiliary_heat_off",
+            "bypass": "bypass_off"
         }
         
         command_name = command_map.get(self._function_id)

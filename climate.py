@@ -148,11 +148,11 @@ class MiyaHRVClimate(ClimateEntity):
             _LOGGER.error(f"不支持的模式: {hvac_mode}")
             return
         
-        # 命令映射
+        # 直接使用英文命令键
         command_map = {
-            HVACMode.OFF: "设备关机",
-            HVACMode.AUTO: "自动模式",
-            HVACMode.FAN_ONLY: "手动模式"
+            HVACMode.OFF: "power_off",
+            HVACMode.AUTO: "power_auto",
+            HVACMode.FAN_ONLY: "power_auto"  # 手动模式暂时使用自动模式
         }
         
         command_name = command_map.get(hvac_mode)
@@ -169,11 +169,11 @@ class MiyaHRVClimate(ClimateEntity):
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """设置风扇模式."""
         if fan_mode in SUPPORTED_FAN_MODES:
-            # 命令映射
+            # 直接使用英文命令键
             command_map = {
-                "low": "风速1档",
-                "medium": "风速2档",
-                "high": "风速3档"
+                "low": "fan_mode_level_1",
+                "medium": "fan_mode_level_2",
+                "high": "fan_mode_level_3"
             }
             
             command_name = command_map.get(fan_mode)

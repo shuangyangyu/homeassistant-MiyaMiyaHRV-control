@@ -66,7 +66,7 @@ class TCP_485_Device:
         try:
             _LOGGER.info("🎧 开始监听设备数据...")
             async for data in self.client.listen():
-                _LOGGER.info(f"📥 收到原始数据: {data}")
+                # _LOGGER.info(f"📥 收到原始数据: {data}")
                 # 返回数据，让调用者处理
                 yield data
                         
