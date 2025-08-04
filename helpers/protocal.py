@@ -1,121 +1,71 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-MIYA新风系统指令分析器
-用于分析和解码现有的485协议指令
-基于MIYA 485协议规范
-"""
+'''
+协议层
+封装设备协议细节，生成和解析原始命令数据。
 
-import sys
-import os
+'''
 from typing import Dict
 
-# 添加父目录到路径，以便导入tcp_485_lib
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+try:
+    from .config_input import command_set_dict as input_dict
+    from .crc_miya import crc16_ccitt,crc16_ccitt_bytes
+    from .config_input import status_meanings_dict as status_meanings_dict
+except ImportError:
+    from config_input import command_set_dict as input_dict
+    from crc_miya import crc16_ccitt,crc16_ccitt_bytes
+    from config_input import status_meanings_dict as status_meanings_dict
 
 try:
-    from tcp_485_lib.tool import DataConverter
+    from .tcp_485_lib import hex_to_bytes,bytes_to_hex,DataConverter
 except ImportError:
-    # 如果无法导入，尝试相对导入
-    sys.path.append(parent_dir)
-    from tcp_485_lib.tool import DataConverter
+    from tcp_485_lib import hex_to_bytes,bytes_to_hex,DataConverter
 
-try:
-    from .crc16_utils import crc16_ccitt
-except ImportError:
-    # 如果相对导入失败，尝试绝对导入
-    from device_MIYA_HRV.crc16_utils import crc16_ccitt
+device_addr="01"
+
+# 生成原始命令数据
+
+def cmd_calculate(input_dict, device_addr):
+    
+    """
+    Input device address and command dictionary, calculate CRC and return a new command dictionary
+    
+    """
+    
+    complete_command_dict = {}
+    
+    fixed_dict=input_dict.get("command_fixed")
+    for command_name, command_hex in fixed_dict.items():
+        try:
+            value_bytes = bytearray(hex_to_bytes(command_hex))
+            device_addr_int = int(device_addr, 16)
+            value_bytes[2] = device_addr_int
+            value_bytes[4] = device_addr_int
+            crc_data = value_bytes[0:18]
+            crc = crc16_ccitt(crc_data)
+            value_bytes.append((crc >> 8) & 0xFF)  # byte 18: CRC高位
+            value_bytes.append(crc & 0xFF)         # byte 19: CRC低位
+            new_value = bytes_to_hex(bytes(value_bytes))  
+            complete_command_dict[command_name] = new_value
+            
+        except Exception as e:
+            print(f"处理命令 {command_name} 时出错: {e}")
+
+    out_dict={
+        "command_fixed":complete_command_dict,
+        "command_broadcast":input_dict.get("command_broadcast"),
+        "command_broadcast_status":input_dict.get("command_broadcast_status")
+    }
+    
+    return out_dict
+
+# 解析原始命令数据
 
 class MiyaCommandAnalyzer:
     """MIYA新风系统指令分析器"""
     
     def __init__(self):
+
+        self.status_meanings = status_meanings_dict
         
-        # 根据MIYA 485协议规范定义状态值含义
-        self.status_meanings = {
-            # header
-            'header': {
-                0xC7: 'Standard Header'
-            },
-            
-            # data_length
-            'data_length': {
-                0x12: '18 bytes data'
-            },
-            
-            # function_type
-            'function_type': {
-                0x01: 'Device Status Query',
-                0x02: 'Device Status Set(Control)'
-            },
-            
-            # power_status
-            'power_status': {
-                0x01: 'off',
-                0x02: 'on'
-            },
-            
-            # fan_speed
-            'fan_speed': {
-                0x01: 'Level_0',
-                0x02: 'Level_1',
-                0x03: 'Level_2',
-                0x04: 'Level_3',
-                0x05: 'Level_4'
-            },
-            
-            # sleep_mode
-            'sleep_mode': {
-                0x01: 'off',
-                0x02: 'on'
-            }, 
-            
-            # negative_ion
-            'negative_ion': {
-                0x01: 'off',
-                0x02: 'on'
-            },
-            
-            # auxiliary_heat
-            'auxiliary_heat': {
-                0x01: 'off',
-                0x02: 'on'
-            },
-            
-            # auto_manual
-            'auto_manual': {
-                0x01: 'auto',
-                0x02: 'manual'
-            },
-            
-            # UV Sterilization
-            'UV_sterilization': {
-                0x01: 'off',
-                0x02: 'on'
-            },
-            
-            # inner_cycle
-            'inner_cycle': {
-                0x01: 'off',
-                0x02: 'on'
-            },
-            
-            # bypass
-            'bypass': {
-                0x01: 'off',
-                0x02: 'on'
-            },
-            
-            # timer
-            'timer': {
-                0x01: 'off',
-                0x02: 'on'
-            }
-        }
-    
     def get_status_data(self, hex_string: str) -> Dict:
         """
         为hass提供状态数据
@@ -138,7 +88,16 @@ class MiyaCommandAnalyzer:
         elif command_type == "设备地址响应":
             # 解析出设备地址
             pass
-
+        elif command_type == "设备状态设置(控制)指令":
+            # 控制指令的响应，通常包含当前状态
+            info_table = self._generate_hass_status_table(data)
+            fan_speed_status = self._fan_speed_status(data)
+            if fan_speed_status:  # 检查是否为None
+                info_table.update(fan_speed_status)
+            mode_status = self._mode_status(data)
+            if mode_status:  # 检查是否为None
+                info_table.update(mode_status)
+            return info_table
         else:
             return {'error': '未知指令类型'}
    
@@ -236,57 +195,9 @@ class MiyaCommandAnalyzer:
             return {'mode': 'off'}
         elif data[5] == 0x02 and data[10] == 0x02:
             return {'mode': 'manual'}
-
-    
-    def _check_crc(self, data: bytes) -> Dict:
-        """检查CRC校验"""
-        if len(data) < 20:
-            return {'status': 'N/A', 'reason': '数据长度不足'}
-        
-        try:
-            # 提取CRC
-            received_crc = (data[18] << 8) | data[19]
-            
-            # 计算CRC
-            calculated_crc = crc16_ccitt(data[0:18])
-            
-            is_valid = received_crc == calculated_crc
-            
-            return {
-                'status': 'PASS' if is_valid else 'FAIL',
-                'received': f"0x{received_crc:04X}",
-                'calculated': f"0x{calculated_crc:04X}",
-                'valid': is_valid
-            }
-        except Exception as e:
-            return {'status': 'ERROR', 'error': str(e)}
-
-
-
-
-
-
-def main():
-    """主函数 - 指令分析示例"""
-    analyzer = MiyaCommandAnalyzer()
-    
-    # 示例指令
-    test_command1 = "C7 12 01 01 01 01 04 04 01 01 01 01 01 01 01 01 00 00 62 78"  # 关机状态
-
-    test_command2 = "C7 12 01 01 01 02 03 03 01 01 01 01 01 01 01 01 00 00 AD DD"  # 关机状态
-
-   
-    
-
-    # all_status = analyzer.analyze_command(test_command1)
-    # print(all_status)
-    # print("--------------------------------")
-
-    # status_data = analyzer.extract_status_data(test_command1)
-    status_data = analyzer.get_status_data(test_command2)
-    print(status_data)
-    
   
-    
+
+
 if __name__ == "__main__":
-    main() 
+    # print(cmd_calculate(input_dict, device_addr))
+     print(MiyaCommandAnalyzer().get_status_data("C7 12 01 01 01 02 03 03 01 01 01 01 01 01 01 01 00 00 AD DD")) 

@@ -83,7 +83,6 @@ class CRC16Utils:
         expected_crc = (crc_bytes[0] << 8) | crc_bytes[1]
         return CRC16Utils.verify_crc16(data, expected_crc)
 
-
 def crc16_ccitt(data: Union[bytes, bytearray]) -> int:
     """
     便捷函数：计算CCITT CRC16校验
@@ -96,7 +95,6 @@ def crc16_ccitt(data: Union[bytes, bytearray]) -> int:
     """
     return CRC16Utils.crc16_ccitt(data)
 
-
 def crc16_ccitt_bytes(data: Union[bytes, bytearray]) -> bytes:
     """
     便捷函数：计算CCITT CRC16校验并返回字节格式
@@ -108,7 +106,6 @@ def crc16_ccitt_bytes(data: Union[bytes, bytearray]) -> bytes:
         CRC16校验值的字节表示
     """
     return CRC16Utils.crc16_ccitt_bytes(data)
-
 
 def verify_crc16(data: Union[bytes, bytearray], expected_crc: int) -> bool:
     """
@@ -123,7 +120,6 @@ def verify_crc16(data: Union[bytes, bytearray], expected_crc: int) -> bool:
     """
     return CRC16Utils.verify_crc16(data, expected_crc)
 
-
 def verify_crc16_bytes(data: Union[bytes, bytearray], crc_bytes: Union[bytes, bytearray]) -> bool:
     """
     便捷函数：验证CRC16校验字节
@@ -136,7 +132,6 @@ def verify_crc16_bytes(data: Union[bytes, bytearray], crc_bytes: Union[bytes, by
         校验是否通过
     """
     return CRC16Utils.verify_crc16_bytes(data, crc_bytes)
-
 
 # 测试函数
 def test_crc16():

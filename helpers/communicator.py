@@ -1,25 +1,18 @@
+'''
+通讯层
+实现与硬件设备的通信接口，如串口读写、握手、重试机制等。
+
+'''
+
 """MIYA HRV 设备类."""
-import asyncio
-import logging
-import sys
-import os
+from .common_imports import asyncio, logging, _LOGGER
 
-_LOGGER = logging.getLogger(__name__)
+try:
+    from .tcp_485_lib import create_client
+except ImportError:
+    from tcp_485_lib import create_client
 
-# 设置库路径
-def setup_library_paths():
-    """设置库路径，确保能找到自定义库."""
-    # 获取当前组件目录（库文件就在这个目录下）
-    component_dir = os.path.dirname(os.path.abspath(__file__))
-    if component_dir not in sys.path:
-        sys.path.insert(0, component_dir)
-        _LOGGER.debug(f"添加库路径: {component_dir}")
-
-# 初始化时设置路径
-setup_library_paths()
-
-
-class MiyaHRVDevice:
+class TCP_485_Device:
     """MIYA HRV设备类."""
     
     def __init__(self, host: str, port: int):
@@ -27,17 +20,14 @@ class MiyaHRVDevice:
         self.host = host
         self.port = port
         self.client = None
-        self._listeners = []
         
     async def connect(self):
         """Connect to the device."""
         try:
             print(f"🔌 正在连接到设备 {self.host}:{self.port}...")
-            from tcp_485_lib import create_client
             self.client = create_client(self.host, self.port, "hex")
             if await self.client.connect():
                 _LOGGER.info(f"✅ 成功连接到MIYA HRV设备 {self.host}:{self.port}")
-                asyncio.create_task(self._listen_for_data())
                 return True
             else:
                 _LOGGER.error(f"❌ 无法连接到MIYA HRV设备 {self.host}:{self.port}")
@@ -66,35 +56,41 @@ class MiyaHRVDevice:
                 _LOGGER.error(f"发送命令时出错: {e}")
         else:
             _LOGGER.warning("设备未连接，无法发送命令")
-    
-    async def _listen_for_data(self):
-        """监听设备数据."""
+
+    async def listen_for_data(self):
+        """监听设备数据 - 异步迭代器."""
         if not self.client:
+            _LOGGER.warning("设备未连接，无法监听数据")
             return
             
         try:
+            _LOGGER.info("🎧 开始监听设备数据...")
             async for data in self.client.listen():
-
-                # _LOGGER.info(f"接收到原始数据: {data}")               
-                # 直接传递原始十六进制数据给监听器
-                # data默认是hex 应该改为16进制
-                data = data.replace(" ", "").upper()
-                _LOGGER.info(f"接收到原始数据: {data}") 
-                for listener in self._listeners:
-                    try:
-                        await listener(data)
-                    except Exception as e:
-                        _LOGGER.error(f"通知监听器时出错: {e}")
-
+                _LOGGER.info(f"📥 收到原始数据: {data}")
+                # 返回数据，让调用者处理
+                yield data
                         
         except Exception as e:
             _LOGGER.error(f"监听数据时出错: {e}")
-  
-    def add_listener(self, listener):
-        """添加数据监听器."""
-        self._listeners.append(listener)
     
-    def remove_listener(self, listener):
-        """移除数据监听器."""
-        if listener in self._listeners:
-            self._listeners.remove(listener) 
+
+    
+
+if __name__ == "__main__":
+    async def main():
+        device = TCP_485_Device("192.168.1.5", 38)
+        
+        try:
+            # 连接设备
+            await device.connect()
+
+            await device.listen_for_data()
+            
+        except KeyboardInterrupt:
+            print("\n用户中断，正在退出...")
+        finally:
+            # 断开连接
+            await device.disconnect()
+    
+    asyncio.run(main())
+    

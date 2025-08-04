@@ -1,14 +1,12 @@
 """MIYA HRV 配置流程."""
-import logging
 import voluptuous as vol
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.data_entry_flow import FlowResult
 
-from .const import DOMAIN, DEFAULT_PORT, generate_device_id
-
-_LOGGER = logging.getLogger(__name__)
+from .helpers.common_imports import logging, CONF_HOST, CONF_PORT, _LOGGER
+from .const import DOMAIN, DEFAULT_PORT
+from .helpers import generate_device_id
 
 
 class MiyaHRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -31,7 +29,13 @@ class MiyaHRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 
                 # 测试连接
-                from tcp_485_lib import create_client
+                try:
+                    from .helpers.tcp_485_lib import create_client
+                except ImportError:
+                    try:
+                        from helpers.tcp_485_lib import create_client
+                    except ImportError:
+                        from .helpers.tcp_485_lib.tcp_client_lib import create_client
                 client = create_client(host, port, "hex")
                 if await client.connect():
                     await client.disconnect()

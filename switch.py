@@ -1,40 +1,28 @@
 """MIYA HRV Switch 平台."""
-import logging
-from typing import Any, List
-
-from homeassistant.components.switch import SwitchEntity
-from homeassistant.components.climate import HVACMode
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from .helpers.common_imports import (
+    logging, Any, List,
+    SwitchEntity, HVACMode, ConfigEntry, CONF_NAME,
+    HomeAssistant, AddEntitiesCallback, ConfigType, DiscoveryInfoType,
+    _LOGGER
+)
 
 from .const import (
     DOMAIN,
     DEVICE_NAME,
-    MANUFACTURER,
     ENTITY_TYPE_SWITCH,
-    FUNCTION_PURIFICATION,
-    FUNCTION_INTERNAL_CIRCULATION,
-    FUNCTION_EXTERNAL_CIRCULATION,
-    FUNCTION_BYPASS,
-    FUNCTION_NEGATIVE_ION,
-    FUNCTION_SLEEP_MODE,
-    generate_entity_id,
-    get_commands,
 )
 
-_LOGGER = logging.getLogger(__name__)
+# 导入辅助函数
+from .helpers import get_device_status, send_device_command, get_commands, generate_entity_id
 
 # 支持的开关功能
 SWITCH_FUNCTIONS = [
-    (FUNCTION_PURIFICATION, "mdi:air-filter"),
-    (FUNCTION_INTERNAL_CIRCULATION, "mdi:refresh"),
-    (FUNCTION_EXTERNAL_CIRCULATION, "mdi:airplane"),
-    (FUNCTION_BYPASS, "mdi:gate"),
-    (FUNCTION_NEGATIVE_ION, "mdi:atom"),
-    (FUNCTION_SLEEP_MODE, "mdi:sleep"),
+    ("uv_sterilization", "mdi:lightbulb"),
+    ("inner_cycle", "mdi:refresh"),
+    ("auxiliary_heat", "mdi:fire"),
+    ("bypass", "mdi:gate"),
+    ("negative_ion", "mdi:atom"),
+    ("sleep_mode", "mdi:bed"),
 ]
 
 
@@ -61,6 +49,15 @@ async def async_setup_entry(
         )
         switches.append(switch_entity)
     
+    # 注册实体到管理器
+    device_data = hass.data[DOMAIN][config_entry.entry_id]
+    for entity in switches:
+        if 'manager' in device_data:
+            device_data['manager'].register_entity(entity.unique_id, entity)
+        else:
+            # 兼容旧版本
+            device_data['entities'][entity.unique_id] = entity
+    
     async_add_entities(switches)
 
 
@@ -77,9 +74,10 @@ class MiyaHRVSwitch(SwitchEntity):
         self._hass = hass
         self._entry_id = entry_id
         self._is_on = False
+        self._current_status = {}  # 存储当前状态数据
         
-        # 添加数据监听器
-        self._device.add_listener(self._handle_device_data)
+        # 移除旧的监听器方式，使用新的状态管理系统
+        # self._device.add_listener(self._handle_device_data)
 
     @property
     def name(self) -> str:
@@ -99,98 +97,80 @@ class MiyaHRVSwitch(SwitchEntity):
     @property
     def is_on(self) -> bool:
         """返回开关状态."""
-        return self._is_on
+        # 优先使用本地状态数据，如果没有则从全局获取
+        status = self._current_status if self._current_status else get_device_status(self._hass, self._entry_id)
+        
+        # 直接使用状态字典中的键名
+        if self._function_id == "negative_ion":
+            return status.get('negative_ion') == 'on'
+        elif self._function_id == "uv_sterilization":
+            return status.get('UV_sterilization') == 'on'
+        elif self._function_id == "sleep_mode":
+            return status.get('sleep_mode') == 'on'
+        elif self._function_id == "inner_cycle":
+            return status.get('inner_cycle') == 'on'
+        elif self._function_id == "auxiliary_heat":
+            return status.get('auxiliary_heat') == 'on'
+        elif self._function_id == "bypass":
+            return status.get('bypass') == 'on'
+
+        
+        return self._is_on  # 回退到旧的状态
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """打开开关."""
-        # 获取命令映射
-        commands = get_commands(self._hass, self._entry_id)
-        command = commands.get(self._function_id)
+        # 命令映射
+        command_map = {
+            "negative_ion": "负离子开启",
+            "uv_sterilization": "UV杀菌开启",
+            "sleep_mode": "睡眠模式开启",
+            "inner_cycle": "内循环开启",
+            "auxiliary_heat": "辅助加热开启",
+            "bypass": "旁通开启"
+        }
         
-        if not command:
+        command_name = command_map.get(self._function_id)
+        if command_name:
+            success = await send_device_command(self._hass, self._entry_id, command_name)
+            if success:
+                self._is_on = True
+                self.async_write_ha_state()
+        else:
             _LOGGER.error(f"未找到功能 {self._function_id} 对应的开启命令")
-            return
-        
-        self._is_on = True
-        await self._device.send_command(command)
-        self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """关闭开关."""
-        # 获取命令映射
-        commands = get_commands(self._hass, self._entry_id)
+        # 命令映射
+        command_map = {
+            "negative_ion": "负离子关闭",
+            "uv_sterilization": "UV杀菌关闭",
+            "sleep_mode": "睡眠模式关闭",
+            "inner_cycle": "内循环关闭",
+            "auxiliary_heat": "辅助加热关闭",
+            "bypass": "旁通关闭"
+        }
         
-        # 尝试获取对应的关闭命令
-        off_command_key = self._function_id + "_off"
-        command = commands.get(off_command_key)
-        
-        # 如果没有找到对应的关闭命令，使用通用关闭命令
-        if not command:
-            command = commands.get(HVACMode.OFF)
-        
-        if not command:
+        command_name = command_map.get(self._function_id)
+        if command_name:
+            success = await send_device_command(self._hass, self._entry_id, command_name)
+            if success:
+                self._is_on = False
+                self.async_write_ha_state()
+        else:
             _LOGGER.error(f"未找到功能 {self._function_id} 对应的关闭命令")
-            return
-        
-        self._is_on = False
-        await self._device.send_command(command)
-        self.async_write_ha_state()
 
-    async def _handle_device_data(self, hex_data: str) -> None:
-        """处理设备数据更新."""
-        try:
-            # 解析十六进制数据
-            hex_bytes = hex_data.replace(" ", "").upper()
-            
-            # 根据功能ID解析对应的状态
-            if self._function_id == "purification":
-                # 辅热/净化功能 - 检查第13个字节
-                if len(hex_bytes) >= 26:
-                    status = hex_bytes[24:26]  # 第13个字节
-                    self._is_on = status == "02"
-                    _LOGGER.info(f"净化功能状态: {'开启' if self._is_on else '关闭'}")
-                    
-            elif self._function_id == "internal_circulation":
-                # 内循环功能 - 检查第12个字节
-                if len(hex_bytes) >= 24:
-                    status = hex_bytes[22:24]  # 第12个字节
-                    self._is_on = status == "02"
-                    _LOGGER.info(f"内循环功能状态: {'开启' if self._is_on else '关闭'}")
-                    
-            elif self._function_id == "external_circulation":
-                # 外循环/UV杀菌功能 - 检查第11个字节
-                if len(hex_bytes) >= 22:
-                    status = hex_bytes[20:22]  # 第11个字节
-                    self._is_on = status == "02"
-                    _LOGGER.info(f"外循环功能状态: {'开启' if self._is_on else '关闭'}")
-                    
-            elif self._function_id == "bypass":
-                # 旁通功能 - 检查第15个字节
-                if len(hex_bytes) >= 30:
-                    status = hex_bytes[28:30]  # 第15个字节
-                    self._is_on = status == "02"
-                    _LOGGER.info(f"旁通功能状态: {'开启' if self._is_on else '关闭'}")
-                    
-            elif self._function_id == "negative_ion":
-                # 负离子功能 - 检查第9个字节
-                if len(hex_bytes) >= 18:
-                    status = hex_bytes[16:18]  # 第9个字节
-                    self._is_on = status == "02"
-                    _LOGGER.info(f"负离子功能状态: {'开启' if self._is_on else '关闭'}")
-                    
-            elif self._function_id == "sleep_mode":
-                # 睡眠模式 - 检查第10个字节
-                if len(hex_bytes) >= 20:
-                    status = hex_bytes[18:20]  # 第10个字节
-                    self._is_on = status == "02"
-                    _LOGGER.info(f"睡眠模式状态: {'开启' if self._is_on else '关闭'}")
-            
-            # 更新状态
-            self.async_write_ha_state()
-            
-        except Exception as e:
-            _LOGGER.error(f"处理设备数据时出错: {e}")
+    def update_status(self, status_data: dict):
+        """更新实体状态数据."""
+        self._current_status = status_data
+        self.async_write_ha_state()
+        _LOGGER.debug(f"📊 Switch {self._function_id} 状态已更新: {status_data}")
+
+    # 移除旧的设备数据处理方法，现在使用新的状态管理系统
+    # async def _handle_device_data(self, hex_data: str) -> None:
+    #     """处理设备数据更新."""
+    #     # 这个方法不再需要，因为状态现在通过 helpers 获取
 
     async def async_will_remove_from_hass(self) -> None:
         """实体从Home Assistant移除时调用."""
-        self._device.remove_listener(self._handle_device_data) 
+        # 移除旧的监听器调用，现在使用新的状态管理系统
+        # self._device.remove_listener(self._handle_device_data) 
