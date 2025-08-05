@@ -6,7 +6,11 @@ from homeassistant.data_entry_flow import FlowResult
 
 from .helpers.common_imports import logging, CONF_HOST, CONF_PORT, _LOGGER
 from .const import DOMAIN, DEFAULT_PORT, CONF_DEVICE_ADDR, DEFAULT_DEVICE_ADDR
-from .helpers import generate_device_id
+
+
+def generate_device_id(host: str, port: int) -> str:
+    """生成设备唯一标识符."""
+    return f"{host}:{port}"
 
 
 class MiyaHRVConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
