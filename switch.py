@@ -13,7 +13,7 @@ from .const import (
 )
 
 # 导入辅助函数
-from .helpers import get_device_status, send_device_command, get_commands, generate_entity_id
+from .helpers.ha_utils import get_device_status, send_device_command, get_commands, generate_entity_id
 
 # 支持的开关功能
 SWITCH_FUNCTIONS = [
