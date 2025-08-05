@@ -195,8 +195,12 @@ class MiyaHRVClimate(ClimateEntity):
     def update_status(self, status_data: dict):
         """更新实体状态数据."""
         self._current_status = status_data
-        self.async_write_ha_state()
-        _LOGGER.debug(f"📊 Climate 状态已更新: {status_data}")
+        # 检查实体是否已经完全初始化
+        if hasattr(self, 'hass') and self.hass is not None:
+            self.async_write_ha_state()
+            _LOGGER.debug(f"📊 Climate 状态已更新: {status_data}")
+        else:
+            _LOGGER.debug(f"📊 Climate 实体尚未完全初始化，仅更新本地状态")
 
 
     async def async_will_remove_from_hass(self) -> None:

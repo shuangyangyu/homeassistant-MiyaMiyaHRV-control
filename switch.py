@@ -162,8 +162,12 @@ class MiyaHRVSwitch(SwitchEntity):
     def update_status(self, status_data: dict):
         """更新实体状态数据."""
         self._current_status = status_data
-        self.async_write_ha_state()
-        _LOGGER.debug(f"📊 Switch {self._function_id} 状态已更新: {status_data}")
+        # 检查实体是否已经完全初始化
+        if hasattr(self, 'hass') and self.hass is not None:
+            self.async_write_ha_state()
+            _LOGGER.debug(f"📊 Switch {self._function_id} 状态已更新: {status_data}")
+        else:
+            _LOGGER.debug(f"📊 Switch {self._function_id} 实体尚未完全初始化，仅更新本地状态")
 
     # 移除旧的设备数据处理方法，现在使用新的状态管理系统
     # async def _handle_device_data(self, hex_data: str) -> None:

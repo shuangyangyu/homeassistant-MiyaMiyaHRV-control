@@ -176,7 +176,7 @@ def get_bypass_status(status: Dict[str, Any]) -> bool:
     return bypass_status == 'on'
 
 def generate_entity_id(entry_id: str, entity_type: str, function_id: str = None) -> str:
-    """生成简洁的实体唯一标识符。
+    """生成唯一的实体标识符。
     
     Args:
         entry_id: 配置条目ID
@@ -184,12 +184,15 @@ def generate_entity_id(entry_id: str, entity_type: str, function_id: str = None)
         function_id: 功能ID (仅用于switch实体)
     
     Returns:
-        简洁的实体唯一标识符
+        唯一的实体标识符
     """
+    # 使用entry_id的前8个字符作为前缀，确保唯一性
+    prefix = entry_id[:8] if len(entry_id) > 8 else entry_id
+    
     if function_id:
-        return f"miya_{function_id}"
+        return f"miya_{prefix}_{function_id}"
     else:
-        return f"miya_{entity_type}"
+        return f"miya_{prefix}_{entity_type}"
 
 def generate_device_id(host: str, port: int) -> str:
     """生成设备唯一标识符。
@@ -310,8 +313,12 @@ class MiyaHRVManager:
             for entity_name, entity in self.entities.items():
                 try:
                     if hasattr(entity, 'update_status'):
-                        entity.update_status(status_data)
-                        _LOGGER.debug(f"📡 直接更新实体: {entity_name}")
+                        # 检查实体是否已经完全初始化
+                        if hasattr(entity, 'hass') and entity.hass is not None:
+                            entity.update_status(status_data)
+                            _LOGGER.debug(f"📡 直接更新实体: {entity_name}")
+                        else:
+                            _LOGGER.debug(f"📡 实体 {entity_name} 尚未完全初始化，跳过更新")
                 except Exception as e:
                     _LOGGER.error(f"❌ 更新实体 {entity_name} 失败: {e}")
                     
