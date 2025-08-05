@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "MIYA HRV 新风系统",
+        "description": "配置MIYA HRV新风系统连接",
+        "data": {
+          "host": "主机地址",
+          "port": "端口",
+          "device_addr": "设备地址"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "无法连接到设备",
+      "unknown": "未知错误"
+    },
+    "abort": {
+      "already_configured": "设备已配置"
+    }
+  }
+} 

@@ -10,6 +10,7 @@ from .common_imports import asyncio, logging, Optional, Dict, Any, HomeAssistant
 from .communicator import TCP_485_Device
 from .protocal import MiyaCommandAnalyzer, cmd_calculate
 from .config_input import command_set_dict
+from .const import CONF_DEVICE_ADDR
 
 def get_device_status(hass, entry_id: str) -> Dict[str, Any]:
     """获取设备状态数据."""
@@ -215,10 +216,9 @@ class MiyaHRVManager:
         self.analyzer = None
         self.entities = {}
     
-    def calculate_commands(self):
+    def calculate_commands(self, device_addr: str = "01"):
         """计算设备命令，包含CRC校验."""
         try:
-            device_addr = "01"
             self.calculated_commands = cmd_calculate(command_set_dict, device_addr)
             _LOGGER.info("命令计算完成")
             return self.calculated_commands
@@ -230,9 +230,12 @@ class MiyaHRVManager:
         """设置组件."""
         self.hass.data.setdefault('miya_hrv', {})
         
+        # 获取设备地址
+        device_addr = entry.data.get('device_addr', '01')
+        
         # 计算命令
         if self.calculated_commands is None:
-            self.calculate_commands()
+            self.calculate_commands(device_addr)
         
         # 创建设备实例
         self.device = TCP_485_Device(

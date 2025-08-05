@@ -23,11 +23,12 @@ ENTITY_TYPE_SWITCH = "switch"
 # 配置选项
 CONF_HOST = "host"
 CONF_PORT = "port"
-CONF_NAME = "name"
+CONF_DEVICE_ADDR = "device_addr"
 
 # 默认值
-DEFAULT_NAME = "MIYA HRV"
+DEFAULT_PORT = 38
 DEFAULT_HOST = "192.168.1.100"
+DEFAULT_DEVICE_ADDR = "01"
 
 # 验证
 MIN_TEMP = 16.0

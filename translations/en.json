@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "MIYA HRV Fresh Air System",
+        "description": "Configure MIYA HRV Fresh Air System connection",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "device_addr": "Device Address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to device",
+      "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  }
+} 
