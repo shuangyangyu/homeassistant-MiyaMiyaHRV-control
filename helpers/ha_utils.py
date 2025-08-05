@@ -10,7 +10,7 @@ from .common_imports import asyncio, logging, Optional, Dict, Any, HomeAssistant
 from .communicator import TCP_485_Device
 from .protocal import MiyaCommandAnalyzer, cmd_calculate
 from .config_input import command_set_dict
-from .const import CONF_DEVICE_ADDR
+from ..const import CONF_DEVICE_ADDR
 
 def get_device_status(hass, entry_id: str) -> Dict[str, Any]:
     """获取设备状态数据."""
